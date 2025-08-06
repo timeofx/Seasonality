@@ -1,0 +1,20 @@
+# Core data processing
+pandas>=2.0.0
+numpy>=1.24.0
+polars>=0.20.0
+
+# GUI and visualization
+streamlit>=1.29.0
+plotly>=5.17.0
+
+# Data download
+yfinance>=0.2.18
+
+# Performance optimization (for future use)
+numba>=0.58.0
+
+# Data handling
+pyarrow>=14.0.0
+
+# Utilities
+python-dateutil>=2.8.0
