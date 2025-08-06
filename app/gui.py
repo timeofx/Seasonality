@@ -134,6 +134,18 @@ class SeasonalityGUI:
             help="Win rate threshold for longest streak calculation"
         )
         
+        # Pattern Deduplication Settings
+        st.sidebar.markdown("### 🔄 Pattern Deduplication")
+        
+        deduplicate_patterns = st.sidebar.checkbox(
+            "Remove Duplicate Assets",
+            value=True,
+            help="Show max 1 Long + 1 Short pattern per asset (recommended)"
+        )
+        
+        if not deduplicate_patterns:
+            st.sidebar.warning("⚠️ May show many similar patterns for same asset")
+        
         st.sidebar.markdown("---")
         
         # Time range
@@ -216,6 +228,7 @@ class SeasonalityGUI:
             "winrate_threshold_longest": winrate_threshold_longest,
             "start_year": start_year,
             "end_year": end_year,
+            "deduplicate_patterns": deduplicate_patterns,
             "analyze_button": analyze_button,
             "download_button": download_button,
             "force_download": force_download
@@ -449,6 +462,17 @@ class SeasonalityGUI:
                     max_phase_length=params["max_phase_length"]
                 )
             
+            # Apply deduplication if requested
+            if params.get("deduplicate_patterns", True):
+                # Import the engine for deduplication
+                from app.seasonality_engine import RealSeasonalityEngine
+                engine = RealSeasonalityEngine()
+                original_count = len(results_df)
+                results_df = engine._deduplicate_patterns(results_df)
+                dedupe_msg = f" (reduced from {original_count} to {len(results_df)} after deduplication)"
+            else:
+                dedupe_msg = ""
+            
             # Final progress update
             progress_callback(1, 1, "Analysis complete!")
             
@@ -464,7 +488,7 @@ class SeasonalityGUI:
                 st.info(f"**Suggestion**: Try lowering the minimum win rate or expanding the time range.")
                 return
             else:
-                st.success(f"✅ **Analysis Complete**: Found {len(results_df)} patterns in {duration:.1f} seconds")
+                st.success(f"✅ **Analysis Complete**: Found {len(results_df)} patterns in {duration:.1f} seconds{dedupe_msg}")
             
             # Display results
             self._display_results(results_df, params, using_real_data)

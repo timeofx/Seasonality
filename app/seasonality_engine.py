@@ -475,6 +475,53 @@ class RealSeasonalityEngine:
         
         return merged
     
+    def _deduplicate_patterns(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Remove duplicate patterns by keeping only the best pattern per asset and direction.
+        This prevents showing the same asset multiple times with slightly different parameters.
+        
+        Strategy:
+        1. Group by asset and direction (Long/Short)
+        2. For each group, keep only the pattern with the highest score
+        3. Score = (winrate * 0.6) + (sharpe_annualized * 0.3) + (avg_return * 100 * 0.1)
+        
+        Args:
+            df: DataFrame with all patterns
+            
+        Returns:
+            DataFrame with deduplicated patterns (max 2 per asset: 1 Long, 1 Short)
+        """
+        if df.empty:
+            return df
+        
+        logger.info(f"Deduplicating {len(df)} patterns...")
+        
+        # Calculate composite score for ranking
+        df['_score'] = (df['winrate'] * 0.6 + 
+                       df['sharpe_annualized'] * 0.3 + 
+                       df['avg_return'] * 100 * 0.1)
+        
+        # Group by asset and direction, keep best pattern for each combination
+        deduplicated = []
+        
+        for (asset, direction), group in df.groupby(['asset', 'direction']):
+            # Sort by score and take the best one
+            best_pattern = group.loc[group['_score'].idxmax()]
+            
+            # Remove the temporary score column
+            best_pattern_dict = best_pattern.to_dict()
+            if '_score' in best_pattern_dict:
+                del best_pattern_dict['_score']
+            
+            deduplicated.append(best_pattern_dict)
+        
+        # Convert back to DataFrame
+        result_df = pd.DataFrame(deduplicated)
+        
+        logger.info(f"After deduplication: {len(result_df)} patterns (max 2 per asset: Long + Short)")
+        
+        return result_df
+    
     def analyze_multiple_assets(
         self,
         assets: List[str],
@@ -528,6 +575,9 @@ class RealSeasonalityEngine:
         
         # Convert to DataFrame
         df = pd.DataFrame(all_patterns)
+        
+        # Intelligent deduplication: Keep only the best pattern per asset and direction
+        df = self._deduplicate_patterns(df)
         
         # Sort by winrate and sharpe ratio
         df = df.sort_values(['winrate', 'sharpe_annualized'], ascending=[False, False])
